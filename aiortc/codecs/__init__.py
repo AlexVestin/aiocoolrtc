@@ -136,7 +136,7 @@ def get_encoder(codec, copy_info = None):
     elif mimeType == 'audio/pcmu':
         return PcmuEncoder()
     elif mimeType == 'video/h264':
-        return H264Encoder() if not copy else H264CopyEncoder(copy_info)
+        return H264Encoder() if not copy_info else H264CopyEncoder(copy_info)
     elif mimeType == 'video/vp8':
         return Vp8Encoder()
     

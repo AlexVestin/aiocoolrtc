@@ -62,7 +62,6 @@ class RTCRtpSender:
         self.__rtx_sequence_number = random16()
         self.__started = False
         self.__stats = RTCStatsReport()
-        self.__copy_codec = False
         self.__transport = transport
 
         # stats
