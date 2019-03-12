@@ -62,6 +62,7 @@ class RTCRtpSender:
         self.__rtx_sequence_number = random16()
         self.__started = False
         self.__stats = RTCStatsReport()
+        self.__copy_codec = False
         self.__transport = transport
 
         # stats
@@ -221,7 +222,7 @@ class RTCRtpSender:
 
         # encode frame
         if self.__encoder is None:
-            self.__encoder = get_encoder(codec)
+            self.__encoder = get_encoder(codec, self.__track.__copy_codec_info)
         return await self.__loop.run_in_executor(None, self.__encoder.encode,
                                                  frame, self.__force_keyframe)
 

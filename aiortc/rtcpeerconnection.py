@@ -667,6 +667,7 @@ class RTCPeerConnection(EventEmitter):
                     find_common_codecs(CODECS[media.kind], media.rtp.codecs),
                     transceiver._preferred_codecs)
                 assert len(common)
+                
                 transceiver._codecs = common
                 transceiver._headerExtensions = find_common_header_extensions(
                     HEADER_EXTENSIONS[media.kind], media.rtp.headerExtensions)

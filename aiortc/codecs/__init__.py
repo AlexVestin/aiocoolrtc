@@ -8,6 +8,7 @@ from ..rtcrtpparameters import (RTCRtcpFeedback,
                                 RTCRtpHeaderExtensionParameters)
 from .g711 import PcmaDecoder, PcmaEncoder, PcmuDecoder, PcmuEncoder
 from .h264 import H264Decoder, H264Encoder, h264_depayload
+from .h264copy import H264CopyEncoder 
 from .opus import OpusDecoder, OpusEncoder
 from .vpx import Vp8Decoder, Vp8Encoder, vp8_depayload
 
@@ -125,7 +126,7 @@ def get_decoder(codec):
         return Vp8Decoder()
 
 
-def get_encoder(codec):
+def get_encoder(codec, copy_info = None):
     mimeType = codec.mimeType.lower()
 
     if mimeType == 'audio/opus':
@@ -135,9 +136,10 @@ def get_encoder(codec):
     elif mimeType == 'audio/pcmu':
         return PcmuEncoder()
     elif mimeType == 'video/h264':
-        return H264Encoder()
+        return H264Encoder() if not copy else H264CopyEncoder(copy_info)
     elif mimeType == 'video/vp8':
         return Vp8Encoder()
+    
 
 
 def is_rtx(codec):

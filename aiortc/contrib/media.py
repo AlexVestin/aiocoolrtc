@@ -5,7 +5,7 @@ import threading
 import time
 
 import av
-from av import AudioFrame, VideoFrame
+from av import AudioFrame, VideoFrame, Packet
 
 from ..mediastreams import AUDIO_PTIME, MediaStreamError, MediaStreamTrack
 
@@ -77,8 +77,8 @@ class MediaBlackhole:
         self.__tracks = {}
 
 
-def player_worker(loop, container, streams, audio_track, video_track, quit_event,
-                  throttle_playback):
+def player_worker(loop, container, streams,, audio_track, video_track, quit_event,
+                  throttle_playback, copy_frame = False):
     audio_fifo = av.AudioFifo()
     audio_format_name = 's16'
     audio_layout_name = 'stereo'
@@ -97,7 +97,12 @@ def player_worker(loop, container, streams, audio_track, video_track, quit_event
 
     while not quit_event.is_set():
         try:
-            frame = next(container.decode(*streams))
+            
+            if not copy_frame:
+                frame = next(container.decode(*streams))
+            else:
+                frame = next(container.demux(*streams))
+            
         except (av.AVError, StopIteration):
             if audio_track:
                 asyncio.run_coroutine_threadsafe(audio_track._queue.put(None), loop)
@@ -139,19 +144,38 @@ def player_worker(loop, container, streams, audio_track, video_track, quit_event
             # video from a webcam doesn't start at pts 0, cancel out offset
             if video_first_pts is None:
                 video_first_pts = frame.pts
+
             frame.pts -= video_first_pts
 
             frame_time = frame.time
             asyncio.run_coroutine_threadsafe(video_track._queue.put(frame), loop)
+        elif isinstance(frame, Package) and video_track:
+            if frame.pts is None:  # pragma: no cover
+                logger.warning('Skipping video frame with no pts')
+                continue
 
+            # video from a webcam doesn't start at pts 0, cancel out offset
+            if video_first_pts is None:
+                video_first_pts = frame.pts
+
+            frame.pts -= video_first_pts
+            # TODO frame time??
+            # float(self.ptr.pts) * self._time_base.num / self._time_base.den
+            frame.time = float(packet.pts) * packet.time_base.num / packet.time_bas.den
+            # https://github.com/mikeboers/PyAV/blob/develop/av/frame.pyx#L136
+            # frame_time = frame.time
+            asyncio.run_coroutine_threadsafe(video_track._queue.put(frame), loop)
 
 class PlayerStreamTrack(MediaStreamTrack):
-    def __init__(self, player, kind):
+    def __init__(self, player, kind, copy_info):
         super().__init__()
         self.kind = kind
         self._player = player
         self._queue = asyncio.Queue()
         self._start = None
+
+        self.__copy_info = copy_info
+        
 
     async def recv(self):
         if self.readyState != 'live':
@@ -211,7 +235,7 @@ class MediaPlayer:
     :param: format: The format to use, defaults to autodect.
     :param: options: Additional options to pass to FFmpeg.
     """
-    def __init__(self, file, format=None, options={}):
+    def __init__(self, file, format=None, options={}, copy_info={}):
         self.__container = av.open(file=file, format=format, mode='r', options=options)
         self.__thread = None
         self.__thread_quit = None
@@ -221,12 +245,13 @@ class MediaPlayer:
         self.__streams = []
         self.__audio = None
         self.__video = None
+
         for stream in self.__container.streams:
             if stream.type == 'audio' and not self.__audio:
                 self.__audio = PlayerStreamTrack(self, kind='audio')
                 self.__streams.append(stream)
             elif stream.type == 'video' and not self.__video:
-                self.__video = PlayerStreamTrack(self, kind='video')
+                self.__video = PlayerStreamTrack(self, kind='video', copy_info)
                 self.__streams.append(stream)
 
         # check whether we need to throttle playback

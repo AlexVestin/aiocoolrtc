@@ -5,7 +5,6 @@ import queue
 import random
 import threading
 import time
-
 import attr
 
 from . import clock

@@ -32,6 +32,7 @@ class MediaStreamTrack(EventEmitter):
         super().__init__()
         self.__ended = False
         self.__id = str(uuid.uuid4())
+        self.__copy_codec = False
 
     @property
     def id(self):
