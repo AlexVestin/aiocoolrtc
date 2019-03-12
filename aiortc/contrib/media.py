@@ -175,7 +175,7 @@ class PlayerStreamTrack(MediaStreamTrack):
         self._start = None
 
         self.__copy_info = copy_info
-        
+
 
     async def recv(self):
         if self.readyState != 'live':
@@ -235,7 +235,7 @@ class MediaPlayer:
     :param: format: The format to use, defaults to autodect.
     :param: options: Additional options to pass to FFmpeg.
     """
-    def __init__(self, file, format=None, options={}, copy_info={}):
+    def __init__(self, file, format=None, options={}, copy_info=None):
         self.__container = av.open(file=file, format=format, mode='r', options=options)
         self.__thread = None
         self.__thread_quit = None
@@ -246,9 +246,11 @@ class MediaPlayer:
         self.__audio = None
         self.__video = None
 
+        self.__is_copying = copy_info is not None
+
         for stream in self.__container.streams:
             if stream.type == 'audio' and not self.__audio:
-                self.__audio = PlayerStreamTrack(self, kind='audio')
+                self.__audio = PlayerStreamTrack(self, kind='audio', copy_info)
                 self.__streams.append(stream)
             elif stream.type == 'video' and not self.__video:
                 self.__video = PlayerStreamTrack(self, kind='video', copy_info)
@@ -285,7 +287,9 @@ class MediaPlayer:
                     self.__container, self.__streams,
                     self.__audio, self.__video,
                     self.__thread_quit,
-                    self._throttle_playback))
+                    self._throttle_playback,
+                    self.__copy_info != {}
+                    ))
             self.__thread.start()
 
     def _stop(self, track):
